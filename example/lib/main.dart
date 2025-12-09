@@ -31,7 +31,8 @@ class _MyAppState extends State<MyApp> {
     // We also handle the message potentially returning null.
     try {
       platformVersion =
-          await DaouSampleApp.getPlatformVersion() ?? 'Unknown platform version';
+          await DaouSampleApp.getPlatformVersion() ??
+          'Unknown platform version';
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }
@@ -67,9 +68,7 @@ class _MyAppState extends State<MyApp> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('SimpleTest 결과'),
-          content: SingleChildScrollView(
-            child: Text(result),
-          ),
+          content: SingleChildScrollView(child: Text(result)),
           actions: [
             TextButton(
               onPressed: () {
@@ -88,9 +87,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
+        appBar: AppBar(title: const Text('Plugin example app')),
         body: Builder(
           builder: (BuildContext scaffoldContext) {
             return Center(

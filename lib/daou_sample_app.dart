@@ -1,10 +1,8 @@
-
 import 'package:flutter/services.dart';
 
 import 'daou_sample_app_platform_interface.dart';
 
 class DaouSampleApp {
-
   static const MethodChannel _channel = MethodChannel('daou_sample_app');
 
   static Future<String?> getPlatformVersion() {

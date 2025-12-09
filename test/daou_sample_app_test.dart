@@ -7,7 +7,6 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 class MockDaouSampleAppPlatform
     with MockPlatformInterfaceMixin
     implements DaouSampleAppPlatform {
-
   @override
   Future<String?> getPlatformVersion() => Future.value('42');
 

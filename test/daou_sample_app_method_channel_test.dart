@@ -9,21 +9,20 @@ void main() {
   const MethodChannel channel = MethodChannel('daou_sample_app');
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (MethodCall methodCall) async {
-        if (methodCall.method == 'getPlatformVersion') {
-          return '42';
-        } else if (methodCall.method == 'callSimpleTest') {
-          return 'test result';
-        }
-        return null;
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+          if (methodCall.method == 'getPlatformVersion') {
+            return '42';
+          } else if (methodCall.method == 'callSimpleTest') {
+            return 'test result';
+          }
+          return null;
+        });
   });
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
   });
 
   test('getPlatformVersion', () async {

@@ -54,18 +54,33 @@ jobs:
         pod install
         cd ../..
     
-    - name: Build iOS IPA (without codesign)
+    - name: Build iOS App (without codesign)
       run: |
         cd example
-        echo "Starting IPA build without codesign..."
-        flutter build ipa --release --no-codesign --verbose 2>&1 | tee build.log || true
-        echo "Build command completed"
+        echo "Building iOS app without codesign..."
+        # IPA 대신 .app 빌드 (서명 불필요)
+        flutter build ios --release --no-codesign
+        echo "iOS build completed"
         echo "Checking build output..."
-        ls -la build/ios/ipa/ || echo "IPA directory not found"
-        echo "Checking for any .app files..."
         find build/ios -name "*.app" -type d || echo "No .app files found"
-        echo "Last 50 lines of build log:"
-        tail -50 build.log || echo "No build log found"
+        ls -la build/ios/iphoneos/ || echo "iphoneos directory not found"
+      continue-on-error: true
+    
+    - name: Create IPA from App (if app exists)
+      run: |
+        cd example
+        APP_PATH=$(find build/ios/iphoneos -name "*.app" -type d | head -1)
+        if [ -n "$APP_PATH" ]; then
+          echo "Found app at: $APP_PATH"
+          mkdir -p build/ios/ipa/Payload
+          cp -r "$APP_PATH" build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r app.ipa Payload
+          echo "IPA created successfully"
+          ls -lh app.ipa
+        else
+          echo "No app found, skipping IPA creation"
+        fi
       continue-on-error: true
     
     - name: Build iOS IPA (with codesign if credentials available)
@@ -112,7 +127,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ios-ipa
-        path: example/build/ios/ipa/*.ipa
+        path: |
+          example/build/ios/ipa/*.ipa
+          example/build/ios/iphoneos/*.app
         retention-days: 30
         if-no-files-found: warn
 

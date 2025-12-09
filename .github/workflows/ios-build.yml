@@ -57,9 +57,15 @@ jobs:
     - name: Build iOS IPA (without codesign)
       run: |
         cd example
-        flutter build ipa --release --no-codesign
-        echo "IPA build (no-codesign) completed"
+        echo "Starting IPA build without codesign..."
+        flutter build ipa --release --no-codesign --verbose 2>&1 | tee build.log || true
+        echo "Build command completed"
+        echo "Checking build output..."
         ls -la build/ios/ipa/ || echo "IPA directory not found"
+        echo "Checking for any .app files..."
+        find build/ios -name "*.app" -type d || echo "No .app files found"
+        echo "Last 50 lines of build log:"
+        tail -50 build.log || echo "No build log found"
       continue-on-error: true
     
     - name: Build iOS IPA (with codesign if credentials available)

@@ -167,10 +167,24 @@ jobs:
         rm -rf build/
         echo "✅ Build directory cleaned"
     
+    - name: Regenerate Flutter files (after clean)
+      run: |
+        echo "🔄 Regenerating Flutter files after clean..."
+        cd example
+        flutter pub get
+        echo "✅ Flutter files regenerated"
+    
     - name: Install iOS dependencies
       run: |
         echo "📦 Installing iOS dependencies (CocoaPods)..."
         cd example/ios
+        # Generated.xcconfig 파일 확인
+        if [ ! -f "../Flutter/Generated.xcconfig" ]; then
+          echo "❌ Generated.xcconfig not found, running flutter pub get..."
+          cd ..
+          flutter pub get
+          cd ios
+        fi
         pod install --repo-update
         echo "✅ CocoaPods dependencies installed"
         cd ../..

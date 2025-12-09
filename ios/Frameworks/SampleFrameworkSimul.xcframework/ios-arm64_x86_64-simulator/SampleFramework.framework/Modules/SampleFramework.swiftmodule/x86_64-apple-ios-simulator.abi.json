@@ -1,0 +1,42 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "SampleFramework",
+    "printedName": "SampleFramework",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "SampleFramework",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Function",
+        "name": "simpleTest",
+        "printedName": "simpleTest()",
+        "children": [
+          {
+            "kind": "TypeNominal",
+            "name": "String",
+            "printedName": "Swift.String",
+            "usr": "s:SS"
+          }
+        ],
+        "declKind": "Func",
+        "usr": "s:15SampleFramework10simpleTestSSyF",
+        "mangledName": "$s15SampleFramework10simpleTestSSyF",
+        "moduleName": "SampleFramework",
+        "declAttributes": [
+          "AccessControl"
+        ],
+        "funcSelfKind": "NonMutating"
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": []
+}

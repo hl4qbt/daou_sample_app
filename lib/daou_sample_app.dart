@@ -22,12 +22,7 @@ class DaouSampleApp {
   }
 
   /// SimpleTest 함수 호출
-  static Future<String?> callSimpleTest() async {
-    try {
-      final String? result = await _channel.invokeMethod('callSimpleTest');
-      return result;
-    } on PlatformException catch (e) {
-      throw Exception("Failed to call SimpleTest: ${e.message}");
-    }
+  static Future<String?> callSimpleTest() {
+    return DaouSampleAppPlatform.instance.callSimpleTest();
   }
 }

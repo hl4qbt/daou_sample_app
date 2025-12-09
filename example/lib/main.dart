@@ -48,9 +48,6 @@ class _MyAppState extends State<MyApp> {
 
   // SimpleTest 함수 호출 및 결과를 팝업으로 표시
   Future<void> callSimpleTest(BuildContext dialogContext) async {
-    // BuildContext를 async 작업 전에 저장
-    final BuildContext context = dialogContext;
-    
     String result;
     try {
       result = await DaouSampleApp.callSimpleTest() ?? 'No result returned';
@@ -60,13 +57,14 @@ class _MyAppState extends State<MyApp> {
       result = 'Error: $e';
     }
 
-    // mounted 체크 후 showDialog 호출
+    // async 작업 후 mounted 체크
     if (!mounted) return;
 
-    // 팝업창으로 결과 표시
+    // BuildContext를 mounted 체크 후에 사용
+    // ignore: use_build_context_synchronously
     await showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
+      context: dialogContext,
+      builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('SimpleTest 결과'),
           content: SingleChildScrollView(
@@ -75,7 +73,7 @@ class _MyAppState extends State<MyApp> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pop();
               },
               child: const Text('확인'),
             ),

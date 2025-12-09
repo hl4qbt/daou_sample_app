@@ -58,12 +58,27 @@ jobs:
       run: |
         cd example
         echo "Building iOS app without codesign..."
-        # IPA 대신 .app 빌드 (서명 불필요)
-        flutter build ios --release --no-codesign
+        
+        # Xcode 프로젝트에서 서명 비활성화
+        cd ios
+        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj || \
+        sed -i 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
+        sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj || \
+        sed -i 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj
+        sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' Runner.xcodeproj/project.pbxproj || \
+        sed -i 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' Runner.xcodeproj/project.pbxproj
+        
+        cd ..
+        
+        # xcodebuild로 직접 빌드 (서명 완전 비활성화)
+        flutter build ios --release --no-codesign || \
+        (cd ios && xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -derivedDataPath ../build/ios)
+        
         echo "iOS build completed"
         echo "Checking build output..."
         find build/ios -name "*.app" -type d || echo "No .app files found"
         ls -la build/ios/iphoneos/ || echo "iphoneos directory not found"
+        ls -la build/ios/Build/Products/Release-iphoneos/ 2>/dev/null || echo "Release-iphoneos directory not found"
       continue-on-error: true
     
     - name: Create IPA from App (if app exists)
@@ -74,6 +89,9 @@ jobs:
         
         # 여러 경로에서 .app 찾기
         APP_PATH=$(find build/ios/iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+        if [ -z "$APP_PATH" ]; then
+          APP_PATH=$(find build/ios/Build/Products/Release-iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+        fi
         if [ -z "$APP_PATH" ]; then
           APP_PATH=$(find build/ios -name "*.app" -type d 2>/dev/null | head -1)
         fi

@@ -53,6 +53,16 @@ jobs:
       run: |
         cd example
         flutter build appbundle --release
+        echo "AAB build completed"
+        ls -la build/app/outputs/bundle/release/ || echo "AAB directory not found"
+    
+    - name: Verify build outputs
+      run: |
+        cd example
+        echo "Checking APK..."
+        ls -lh build/app/outputs/flutter-apk/app-release.apk || echo "APK not found"
+        echo "Checking AAB..."
+        ls -lh build/app/outputs/bundle/release/app-release.aab || echo "AAB not found"
     
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
@@ -60,6 +70,7 @@ jobs:
         name: android-apk
         path: example/build/app/outputs/flutter-apk/app-release.apk
         retention-days: 30
+        if-no-files-found: warn
     
     - name: Upload AAB artifact
       uses: actions/upload-artifact@v4
@@ -67,4 +78,5 @@ jobs:
         name: android-aab
         path: example/build/app/outputs/bundle/release/app-release.aab
         retention-days: 30
+        if-no-files-found: warn
 

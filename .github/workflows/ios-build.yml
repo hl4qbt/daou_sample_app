@@ -54,10 +54,12 @@ jobs:
         pod install
         cd ../..
     
-    - name: Build iOS IPA
+    - name: Build iOS IPA (without codesign)
       run: |
         cd example
         flutter build ipa --release --no-codesign
+        echo "IPA build (no-codesign) completed"
+        ls -la build/ios/ipa/ || echo "IPA directory not found"
       continue-on-error: true
     
     - name: Build iOS IPA (with codesign if credentials available)
@@ -84,6 +86,15 @@ jobs:
         cd ../..
         cd example
         flutter build ipa --release
+        echo "IPA build (with codesign) completed"
+        ls -la build/ios/ipa/ || echo "IPA directory not found"
+    
+    - name: Verify iOS build outputs
+      run: |
+        cd example
+        echo "Checking IPA files..."
+        ls -lh build/ios/ipa/*.ipa || echo "No IPA files found"
+        echo "IPA verification completed"
     
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4

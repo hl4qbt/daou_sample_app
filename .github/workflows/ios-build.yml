@@ -63,7 +63,7 @@ jobs:
       continue-on-error: true
     
     - name: Build iOS IPA (with codesign if credentials available)
-      if: ${{ secrets.APPLE_CERTIFICATE }}
+      if: ${{ secrets.APPLE_CERTIFICATE != '' }}
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}

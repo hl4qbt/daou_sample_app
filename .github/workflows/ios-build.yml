@@ -44,6 +44,7 @@ jobs:
     - name: Get example dependencies
       run: |
         cd example
+        flutter pub get 2>&1 | grep -v "deprecated version of the Android embedding" || true
         flutter pub get
         echo "Example dependencies installed successfully"
     

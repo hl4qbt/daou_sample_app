@@ -24,8 +24,14 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.10.3'
+        flutter-version: '3.24.0'
         channel: 'stable'
+        cache: true
+    
+    - name: Verify Flutter installation
+      run: |
+        flutter --version
+        flutter doctor -v
     
     - name: Get Flutter dependencies
       run: |
@@ -34,7 +40,9 @@ jobs:
     - name: Get example dependencies
       run: |
         cd example
-        flutter pub get
+        # Android embedding v2 경고는 무시 (이미 v2로 설정됨)
+        flutter pub get 2>&1 | grep -v "deprecated version of the Android embedding" || flutter pub get
+        echo "Example dependencies installed successfully"
     
     - name: Build Android APK
       run: |

@@ -17,7 +17,6 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
-  final _daouSampleAppPlugin = DaouSampleApp();
 
   @override
   void initState() {
@@ -49,6 +48,9 @@ class _MyAppState extends State<MyApp> {
 
   // SimpleTest 함수 호출 및 결과를 팝업으로 표시
   Future<void> callSimpleTest(BuildContext dialogContext) async {
+    // BuildContext를 async 작업 전에 저장
+    final BuildContext context = dialogContext;
+    
     String result;
     try {
       result = await DaouSampleApp.callSimpleTest() ?? 'No result returned';
@@ -58,12 +60,13 @@ class _MyAppState extends State<MyApp> {
       result = 'Error: $e';
     }
 
+    // mounted 체크 후 showDialog 호출
     if (!mounted) return;
 
     // 팝업창으로 결과 표시
     await showDialog(
-      context: dialogContext,
-      builder: (BuildContext context) {
+      context: context,
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('SimpleTest 결과'),
           content: SingleChildScrollView(
@@ -72,7 +75,7 @@ class _MyAppState extends State<MyApp> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
               child: const Text('확인'),
             ),

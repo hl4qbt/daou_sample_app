@@ -10,6 +10,9 @@ class MockDaouSampleAppPlatform
 
   @override
   Future<String?> getPlatformVersion() => Future.value('42');
+
+  @override
+  Future<String?> callSimpleTest() => Future.value('test result');
 }
 
 void main() {
@@ -20,10 +23,16 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    DaouSampleApp daouSampleAppPlugin = DaouSampleApp();
     MockDaouSampleAppPlatform fakePlatform = MockDaouSampleAppPlatform();
     DaouSampleAppPlatform.instance = fakePlatform;
 
-    expect(await daouSampleAppPlugin.getPlatformVersion(), '42');
+    expect(await DaouSampleApp.getPlatformVersion(), '42');
+  });
+
+  test('callSimpleTest', () async {
+    MockDaouSampleAppPlatform fakePlatform = MockDaouSampleAppPlatform();
+    DaouSampleAppPlatform.instance = fakePlatform;
+
+    expect(await DaouSampleApp.callSimpleTest(), 'test result');
   });
 }

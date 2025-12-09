@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import SampleFramework
 
 public class DaouSampleAppPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {

@@ -1,19 +1,19 @@
-name: Build iOS
+name: Build iOS - Complete
 
 on:
   workflow_dispatch:  # 수동 실행
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
 
 jobs:
-  build-ios:
-    runs-on: macos-latest
-    
+  # 1단계: 코드 검증 및 테스트
+  validate:
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
@@ -27,69 +27,238 @@ jobs:
         flutter --version
         flutter doctor -v
     
-    - name: Install CocoaPods
-      run: |
-        sudo gem install cocoapods
-        pod --version
-    
     - name: Get Flutter dependencies
       run: |
-        echo "Current directory: $(pwd)"
-        echo "Checking pubspec.yaml..."
-        cat pubspec.yaml || echo "pubspec.yaml not found"
-        echo "Running flutter pub get..."
-        flutter pub get || (echo "flutter pub get failed, trying with --verbose" && flutter pub get --verbose)
-        echo "Flutter pub get completed"
+        echo "📦 Installing root dependencies..."
+        flutter pub get
     
     - name: Get example dependencies
       run: |
+        echo "📦 Installing example dependencies..."
         cd example
-        flutter pub get 2>&1 | grep -v "deprecated version of the Android embedding" || true
         flutter pub get
-        echo "Example dependencies installed successfully"
+    
+    - name: Analyze code
+      run: |
+        echo "🔍 Analyzing code..."
+        flutter analyze --no-fatal-infos
+        cd example
+        flutter analyze --no-fatal-infos
+    
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        flutter test
+        cd example
+        flutter test
+    
+    - name: Check code formatting
+      run: |
+        echo "✨ Checking code formatting..."
+        dart format --set-exit-if-changed --line-length=80 lib/ test/
+        cd example
+        dart format --set-exit-if-changed --line-length=80 lib/ test/
+    
+    - name: Verify plugin structure
+      run: |
+        echo "🔍 Verifying plugin structure..."
+        echo "Checking plugin files..."
+        [ -f "ios/Classes/DaouSampleAppPlugin.swift" ] || exit 1
+        [ -f "ios/daou_sample_app.podspec" ] || exit 1
+        [ -d "ios/Frameworks/SampleFramework.xcframework" ] || exit 1
+        echo "✅ Plugin structure verified"
+    
+    - name: Verify SampleFramework import
+      run: |
+        echo "🔍 Verifying SampleFramework import..."
+        if grep -q "import SampleFramework" ios/Classes/DaouSampleAppPlugin.swift; then
+          echo "✅ SampleFramework import found"
+        else
+          echo "❌ SampleFramework import not found!"
+          exit 1
+        fi
+
+  # 2단계: iOS 빌드
+  build-ios:
+    runs-on: macos-latest
+    needs: validate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+        cache: true
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 'latest-stable'
+    
+    - name: Verify Flutter installation
+      run: |
+        echo "🔍 Verifying Flutter installation..."
+        flutter --version
+        flutter doctor -v
+    
+    - name: Install CocoaPods
+      run: |
+        echo "📦 Installing CocoaPods..."
+        sudo gem install cocoapods
+        pod --version
+    
+    - name: Verify project structure
+      run: |
+        echo "🔍 Verifying project structure..."
+        echo "Current directory: $(pwd)"
+        echo "Checking root pubspec.yaml..."
+        [ -f "pubspec.yaml" ] || exit 1
+        echo "Checking example directory..."
+        [ -d "example" ] || exit 1
+        echo "Checking iOS directory..."
+        [ -d "example/ios" ] || exit 1
+        echo "✅ Project structure verified"
+    
+    - name: Verify SampleFramework exists
+      run: |
+        echo "🔍 Verifying SampleFramework..."
+        echo "Checking SampleFramework.xcframework..."
+        ls -la ios/Frameworks/SampleFramework.xcframework/ || {
+          echo "❌ SampleFramework.xcframework not found!"
+          exit 1
+        }
+        echo "Checking SampleFrameworkSimul.xcframework..."
+        ls -la ios/Frameworks/SampleFrameworkSimul.xcframework/ || {
+          echo "⚠️ SampleFrameworkSimul.xcframework not found (optional)"
+        }
+        echo "Verifying plugin Swift file..."
+        if grep -q "import SampleFramework" ios/Classes/DaouSampleAppPlugin.swift; then
+          echo "✅ SampleFramework import found"
+        else
+          echo "❌ SampleFramework import not found!"
+          exit 1
+        fi
+    
+    - name: Get Flutter dependencies
+      run: |
+        echo "📦 Installing root dependencies..."
+        flutter pub get
+    
+    - name: Get example dependencies
+      run: |
+        echo "📦 Installing example dependencies..."
+        cd example
+        flutter pub get
+        echo "✅ Example dependencies installed"
+    
+    - name: Clean build directory
+      run: |
+        echo "🧹 Cleaning build directory..."
+        cd example
+        flutter clean
+        rm -rf build/
+        echo "✅ Build directory cleaned"
     
     - name: Install iOS dependencies
       run: |
+        echo "📦 Installing iOS dependencies (CocoaPods)..."
         cd example/ios
-        pod install
+        pod install --repo-update
+        echo "✅ CocoaPods dependencies installed"
         cd ../..
     
-    - name: Build iOS App (without codesign)
+    - name: Verify Podfile setup
       run: |
-        cd example
-        echo "Building iOS app without codesign..."
+        echo "🔍 Verifying Podfile setup..."
+        cd example/ios
+        if [ -f "Podfile" ]; then
+          echo "Podfile contents:"
+          cat Podfile | head -20
+        fi
+        if [ -d "Pods" ]; then
+          echo "✅ Pods directory exists"
+          ls -la Pods/ | head -10
+        else
+          echo "❌ Pods directory not found!"
+          exit 1
+        fi
+        cd ../..
+    
+    - name: Configure code signing (disable)
+      run: |
+        echo "🔧 Configuring code signing (disabling)..."
+        cd example/ios
         
         # Xcode 프로젝트에서 서명 비활성화
-        cd ios
-        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj || \
-        sed -i 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
-        sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj || \
-        sed -i 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj
-        sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' Runner.xcodeproj/project.pbxproj || \
-        sed -i 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' Runner.xcodeproj/project.pbxproj
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          # macOS
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj || true
+          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj || true
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' Runner.xcodeproj/project.pbxproj || true
+        else
+          # Linux (fallback)
+          sed -i 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj || true
+          sed -i 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj || true
+          sed -i 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' Runner.xcodeproj/project.pbxproj || true
+        fi
         
-        cd ..
-        
-        # xcodebuild로 직접 빌드 (서명 완전 비활성화)
-        flutter build ios --release --no-codesign || \
-        (cd ios && xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -derivedDataPath ../build/ios)
-        
-        echo "iOS build completed"
-        echo "Checking build output..."
-        find build/ios -name "*.app" -type d || echo "No .app files found"
-        ls -la build/ios/iphoneos/ || echo "iphoneos directory not found"
-        ls -la build/ios/Build/Products/Release-iphoneos/ 2>/dev/null || echo "Release-iphoneos directory not found"
-      continue-on-error: true
+        echo "✅ Code signing disabled"
+        cd ../..
     
-    - name: Create IPA from App (if app exists)
+    - name: Build iOS App (Release, no codesign)
       run: |
+        echo "🔨 Building iOS app (Release, no codesign)..."
         cd example
-        echo "Searching for .app files..."
-        find build/ios -name "*.app" -type d || echo "No .app files found"
+        
+        # Flutter 빌드 시도
+        echo "Attempting Flutter build..."
+        flutter build ios --release --no-codesign || {
+          echo "⚠️ Flutter build failed, trying xcodebuild directly..."
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath ../build/ios \
+            -allowProvisioningUpdates \
+            -quiet || {
+            echo "❌ xcodebuild failed"
+            echo "Checking build logs..."
+            xcodebuild -workspace Runner.xcworkspace \
+              -scheme Runner \
+              -configuration Release \
+              -sdk iphoneos \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              -derivedDataPath ../build/ios \
+              -allowProvisioningUpdates 2>&1 | tail -50
+            exit 1
+          }
+          cd ..
+        }
+        
+        echo "✅ iOS build completed"
+        cd ..
+    
+    - name: Verify build output
+      run: |
+        echo "🔍 Verifying build output..."
+        cd example
         
         # 여러 경로에서 .app 찾기
-        APP_PATH=$(find build/ios/iphoneos -name "*.app" -type d 2>/dev/null | head -1)
-        if [ -z "$APP_PATH" ]; then
+        APP_PATH=""
+        if [ -d "build/ios/iphoneos" ]; then
+          APP_PATH=$(find build/ios/iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+        fi
+        if [ -z "$APP_PATH" ] && [ -d "build/ios/Build/Products/Release-iphoneos" ]; then
           APP_PATH=$(find build/ios/Build/Products/Release-iphoneos -name "*.app" -type d 2>/dev/null | head -1)
         fi
         if [ -z "$APP_PATH" ]; then
@@ -97,53 +266,96 @@ jobs:
         fi
         
         if [ -n "$APP_PATH" ]; then
-          echo "Found app at: $APP_PATH"
+          echo "✅ Found app at: $APP_PATH"
           APP_NAME=$(basename "$APP_PATH")
           echo "App name: $APP_NAME"
           
-          # Info.plist 파일 확인
-          if [ -f "$APP_PATH/Info.plist" ]; then
-            echo "Info.plist found at: $APP_PATH/Info.plist"
-          else
-            echo "WARNING: Info.plist not found in app bundle"
-            echo "App contents:"
-            ls -la "$APP_PATH" || true
-          fi
+          # App 구조 검증
+          echo "Verifying app structure..."
+          [ -f "$APP_PATH/Info.plist" ] || {
+            echo "❌ Info.plist not found!"
+            exit 1
+          }
+          [ -d "$APP_PATH/Frameworks" ] || echo "⚠️ Frameworks directory not found"
+          [ -f "$APP_PATH/$APP_NAME" ] || {
+            echo "❌ App binary not found!"
+            exit 1
+          }
           
-          # IPA 디렉토리 생성 및 정리
-          rm -rf build/ios/ipa
-          mkdir -p build/ios/ipa/Payload
+          # App 정보 출력
+          echo "App Info.plist contents:"
+          plutil -p "$APP_PATH/Info.plist" | head -20 || true
           
-          # .app 파일을 Payload 폴더로 복사 (심볼릭 링크 해결)
-          cp -R "$APP_PATH" build/ios/ipa/Payload/
+          echo "App size:"
+          du -sh "$APP_PATH"
           
-          # 복사 확인
-          echo "Verifying copied app structure:"
-          ls -la build/ios/ipa/Payload/ || echo "Payload directory not found"
-          if [ -f "build/ios/ipa/Payload/$APP_NAME/Info.plist" ]; then
-            echo "Info.plist successfully copied"
-          else
-            echo "ERROR: Info.plist not found after copy"
-            find build/ios/ipa/Payload -name "Info.plist" || echo "No Info.plist found"
-          fi
-          
-          # IPA 파일 생성 (올바른 구조, 현재 디렉토리에서)
-          cd build/ios/ipa
-          zip -r "${APP_NAME%.app}.ipa" Payload -x "*.DS_Store" "*.git*" "*.swp" "*.swo"
-          
-          echo "IPA created successfully"
-          echo "Verifying IPA file structure:"
-          unzip -l "${APP_NAME%.app}.ipa" | grep -E "(Payload|Info.plist)" | head -10
-          echo "Full IPA contents (first 30 lines):"
-          unzip -l "${APP_NAME%.app}.ipa" | head -30
-          ls -lh "${APP_NAME%.app}.ipa"
+          echo "✅ App structure verified"
         else
-          echo "No app found, listing build directory:"
-          ls -la build/ios/ || echo "build/ios directory not found"
-          echo "Skipping IPA creation"
+          echo "❌ No .app file found!"
+          echo "Build directory contents:"
+          find build/ios -type f -name "*.app" -o -name "*.ipa" 2>/dev/null || true
+          ls -la build/ios/ 2>/dev/null || true
           exit 1
         fi
-      continue-on-error: true
+        cd ..
+    
+    - name: Create IPA from App
+      run: |
+        echo "📦 Creating IPA from app..."
+        cd example
+        
+        # .app 파일 찾기
+        APP_PATH=""
+        if [ -d "build/ios/iphoneos" ]; then
+          APP_PATH=$(find build/ios/iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+        fi
+        if [ -z "$APP_PATH" ] && [ -d "build/ios/Build/Products/Release-iphoneos" ]; then
+          APP_PATH=$(find build/ios/Build/Products/Release-iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+        fi
+        if [ -z "$APP_PATH" ]; then
+          APP_PATH=$(find build/ios -name "*.app" -type d 2>/dev/null | head -1)
+        fi
+        
+        if [ -z "$APP_PATH" ]; then
+          echo "❌ No app found for IPA creation"
+          exit 1
+        fi
+        
+        APP_NAME=$(basename "$APP_PATH")
+        echo "Creating IPA from: $APP_PATH"
+        
+        # IPA 디렉토리 생성 및 정리
+        rm -rf build/ios/ipa
+        mkdir -p build/ios/ipa/Payload
+        
+        # .app 파일을 Payload 폴더로 복사
+        cp -R "$APP_PATH" build/ios/ipa/Payload/
+        
+        # 복사 확인
+        if [ ! -f "build/ios/ipa/Payload/$APP_NAME/Info.plist" ]; then
+          echo "❌ Failed to copy app to Payload"
+          exit 1
+        fi
+        
+        # IPA 파일 생성
+        cd build/ios/ipa
+        zip -r "${APP_NAME%.app}.ipa" Payload -x "*.DS_Store" "*.git*" "*.swp" "*.swo" -q
+        
+        # IPA 검증
+        if [ ! -f "${APP_NAME%.app}.ipa" ]; then
+          echo "❌ IPA file not created"
+          exit 1
+        fi
+        
+        echo "✅ IPA created: ${APP_NAME%.app}.ipa"
+        echo "IPA size:"
+        ls -lh "${APP_NAME%.app}.ipa"
+        
+        # IPA 구조 검증
+        echo "Verifying IPA structure..."
+        unzip -l "${APP_NAME%.app}.ipa" | grep -E "(Payload|Info.plist)" | head -5
+        
+        cd ../../..
     
     - name: Build iOS IPA (with codesign if credentials available)
       env:
@@ -151,11 +363,15 @@ jobs:
         APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
       run: |
+        echo "🔐 Building iOS IPA with codesign (if credentials available)..."
+        
         # 인증서가 설정되어 있는지 확인
         if [ -z "$APPLE_CERTIFICATE" ]; then
-          echo "Apple certificate not found, skipping codesigned build"
+          echo "ℹ️ Apple certificate not found, skipping codesigned build"
           exit 0
         fi
+        
+        echo "✅ Apple certificate found, proceeding with codesigned build..."
         
         cd example/ios
         
@@ -174,20 +390,55 @@ jobs:
         cd ../..
         cd example
         flutter build ipa --release
-        echo "IPA build (with codesign) completed"
-        ls -la build/ios/ipa/ || echo "IPA directory not found"
-      continue-on-error: true
+        echo "✅ IPA build (with codesign) completed"
+        ls -lh build/ios/ipa/*.ipa 2>/dev/null || echo "No IPA files found"
+        cd ..
     
-    - name: Verify iOS build outputs
+    - name: Verify all build outputs
       run: |
+        echo "🔍 Verifying all build outputs..."
         cd example
-        echo "Checking IPA files..."
-        ls -lh build/ios/ipa/*.ipa 2>/dev/null || echo "No IPA files found in build/ios/ipa/"
-        echo "Checking for any IPA files..."
-        find build/ios -name "*.ipa" -type f || echo "No IPA files found anywhere"
-        echo "Checking for .app files..."
-        find build/ios -name "*.app" -type d || echo "No .app files found"
-        echo "IPA verification completed"
+        
+        echo "=== IPA Files ==="
+        find build/ios -name "*.ipa" -type f -exec ls -lh {} \; || echo "No IPA files found"
+        
+        echo "=== App Files ==="
+        find build/ios -name "*.app" -type d -exec du -sh {} \; || echo "No .app files found"
+        
+        echo "=== Build Summary ==="
+        if [ -d "build/ios/ipa" ]; then
+          echo "IPA directory:"
+          ls -lh build/ios/ipa/ || true
+        fi
+        
+        echo "✅ Build verification completed"
+        cd ..
+    
+    - name: Build summary
+      run: |
+        echo "📊 Build Summary"
+        echo "================"
+        cd example
+        
+        # IPA 파일 찾기
+        IPA_COUNT=$(find build/ios -name "*.ipa" -type f 2>/dev/null | wc -l | tr -d ' ')
+        APP_COUNT=$(find build/ios -name "*.app" -type d 2>/dev/null | wc -l | tr -d ' ')
+        
+        echo "IPA files: $IPA_COUNT"
+        echo "App files: $APP_COUNT"
+        
+        if [ "$IPA_COUNT" -gt 0 ]; then
+          echo "✅ Build successful - IPA files created"
+          find build/ios -name "*.ipa" -type f -exec echo "  - {}" \;
+        elif [ "$APP_COUNT" -gt 0 ]; then
+          echo "⚠️ Build partially successful - App files created but no IPA"
+          find build/ios -name "*.app" -type d -exec echo "  - {}" \;
+        else
+          echo "❌ Build failed - No output files found"
+          exit 1
+        fi
+        
+        cd ..
     
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
@@ -195,14 +446,25 @@ jobs:
         name: ios-ipa
         path: example/build/ios/ipa/*.ipa
         retention-days: 30
-        if-no-files-found: warn
+        if-no-files-found: error
     
     - name: Upload App artifact (if IPA not found)
       uses: actions/upload-artifact@v4
+      if: failure()
       with:
         name: ios-app
         path: |
           example/build/ios/iphoneos/*.app
+          example/build/ios/Build/Products/Release-iphoneos/*.app
         retention-days: 30
         if-no-files-found: warn
-
+    
+    - name: Upload build logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-logs
+        path: |
+          example/build/ios/**/*.log
+        retention-days: 7
+        if-no-files-found: ignore

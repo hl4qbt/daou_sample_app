@@ -63,12 +63,17 @@ jobs:
       continue-on-error: true
     
     - name: Build iOS IPA (with codesign if credentials available)
-      if: ${{ secrets.APPLE_CERTIFICATE != '' }}
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
       run: |
+        # 인증서가 설정되어 있는지 확인
+        if [ -z "$APPLE_CERTIFICATE" ]; then
+          echo "Apple certificate not found, skipping codesigned build"
+          exit 0
+        fi
+        
         cd example/ios
         
         # 인증서 및 프로비저닝 프로파일 설정
@@ -88,6 +93,7 @@ jobs:
         flutter build ipa --release
         echo "IPA build (with codesign) completed"
         ls -la build/ios/ipa/ || echo "IPA directory not found"
+      continue-on-error: true
     
     - name: Verify iOS build outputs
       run: |

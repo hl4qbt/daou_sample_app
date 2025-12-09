@@ -18,8 +18,14 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.10.3'
+        flutter-version: '3.24.0'
         channel: 'stable'
+        cache: true
+    
+    - name: Verify Flutter installation
+      run: |
+        flutter --version
+        flutter doctor -v
     
     - name: Install CocoaPods
       run: |
@@ -28,12 +34,18 @@ jobs:
     
     - name: Get Flutter dependencies
       run: |
-        flutter pub get
+        echo "Current directory: $(pwd)"
+        echo "Checking pubspec.yaml..."
+        cat pubspec.yaml || echo "pubspec.yaml not found"
+        echo "Running flutter pub get..."
+        flutter pub get || (echo "flutter pub get failed, trying with --verbose" && flutter pub get --verbose)
+        echo "Flutter pub get completed"
     
     - name: Get example dependencies
       run: |
         cd example
         flutter pub get
+        echo "Example dependencies installed successfully"
     
     - name: Install iOS dependencies
       run: |
